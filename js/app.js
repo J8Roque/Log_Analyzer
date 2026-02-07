@@ -79,42 +79,44 @@ window.addEventListener("load", () => {
  */
 async function runDemo() {
   try {
-    // Optional: show toast if you have a toast system
-    if (typeof showToast === "function") showToast("Loading demo sample...", "info");
+    console.log("[Demo] Starting...");
 
-    // Fetch the sample from your repo (works on GitHub Pages)
-    const res = await fetch("samples/sample_github_logs.json", { cache: "no-store" });
-    if (!res.ok) throw new Error(`Sample not found (HTTP ${res.status}). Check path + commit.`);
+    const url = "samples/sample_github_logs.json";
+    console.log("[Demo] Fetching:", url);
 
-    // Parse JSON
+    const res = await fetch(url, { cache: "no-store" });
+    console.log("[Demo] HTTP:", res.status);
+
+    if (!res.ok) throw new Error(`Sample not found (HTTP ${res.status})`);
+
     const data = await res.json();
+    console.log("[Demo] Loaded records:", Array.isArray(data) ? data.length : "not an array");
 
-    // Store globally so analyzer.js can use it
+    // Store globally (this is what your analyzer should read)
     window.__uploadedLogs = data;
-
-    // Compatibility aliases (in case your analyzer uses a different variable name)
     window.uploadedLogs = data;
     window.logsData = data;
 
-    // Enable Analyze button if it exists
+    // Enable Analyze button
     const analyzeBtn = document.getElementById("analyzeBtn");
     if (analyzeBtn) analyzeBtn.disabled = false;
 
-    // Move user to analyze section
-    showSection("#analyze");
+    // Move to Analyze section
+    if (typeof showSection === "function") showSection("#analyze");
 
-    // Trigger analysis if your function exists
+    // Try to analyze
     if (typeof analyzeLogs === "function") {
-      analyzeLogs(); // your analyzer.js should read window.__uploadedLogs
+      analyzeLogs();
+      console.log("[Demo] analyzeLogs() called");
     } else {
-      console.warn("analyzeLogs() not found. Make sure analyzer.js defines it.");
-      alert("Demo loaded, but analyzeLogs() was not found. Check analyzer.js.");
+      console.warn("[Demo] analyzeLogs() not found");
+      alert("Demo loaded, but analyzeLogs() was not found. Check js/analyzer.js is loading.");
     }
 
-    if (typeof showToast === "function") showToast("Demo loaded!", "success");
+    // Proof check
+    console.log("[Demo] window.__uploadedLogs length:", window.__uploadedLogs?.length);
   } catch (err) {
-    console.error(err);
-    if (typeof showToast === "function") showToast(`Demo failed: ${err.message}`, "error");
-    alert(`Demo failed: ${err.message}`);
+    console.error("[Demo] Failed:", err);
+    alert("Demo failed: " + err.message);
   }
 }
