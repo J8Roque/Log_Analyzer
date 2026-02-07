@@ -79,44 +79,32 @@ window.addEventListener("load", () => {
  */
 async function runDemo() {
   try {
-    console.log("[Demo] Starting...");
-
-    const url = "samples/sample_github_logs.json";
-    console.log("[Demo] Fetching:", url);
-
-    const res = await fetch(url, { cache: "no-store" });
-    console.log("[Demo] HTTP:", res.status);
-
+    // Load sample from repo
+    const res = await fetch("samples/sample_github_logs.json", { cache: "no-store" });
     if (!res.ok) throw new Error(`Sample not found (HTTP ${res.status})`);
 
     const data = await res.json();
-    console.log("[Demo] Loaded records:", Array.isArray(data) ? data.length : "not an array");
 
-    // Store globally (this is what your analyzer should read)
+    // Store globally so analyzer.js can use it
     window.__uploadedLogs = data;
-    window.uploadedLogs = data;
-    window.logsData = data;
+    window.uploadedLogs = data;  // optional alias
+    window.logsData = data;      // optional alias
 
     // Enable Analyze button
     const analyzeBtn = document.getElementById("analyzeBtn");
     if (analyzeBtn) analyzeBtn.disabled = false;
 
-    // Move to Analyze section
+    // Switch to Analyze section
     if (typeof showSection === "function") showSection("#analyze");
 
-    // Try to analyze
+    // Run analysis
     if (typeof analyzeLogs === "function") {
       analyzeLogs();
-      console.log("[Demo] analyzeLogs() called");
     } else {
-      console.warn("[Demo] analyzeLogs() not found");
-      alert("Demo loaded, but analyzeLogs() was not found. Check js/analyzer.js is loading.");
+      alert("analyzeLogs() not found. Check js/analyzer.js is loading.");
     }
-
-    // Proof check
-    console.log("[Demo] window.__uploadedLogs length:", window.__uploadedLogs?.length);
   } catch (err) {
-    console.error("[Demo] Failed:", err);
+    console.error(err);
     alert("Demo failed: " + err.message);
   }
 }
