@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Log Analyzer | Interactive Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fab fa-github"></i>
+                <h1>GitHub Log Analyzer</h1>
+            </div>
+            <div class="nav-links">
+                <a href="#upload" class="nav-link active">
+                    <i class="fas fa-upload"></i> Upload
+                </a>
+                <a href="#analyze" class="nav-link">
+                    <i class="fas fa-chart-bar"></i> Analyze
+                </a>
+                <a href="#visualize" class="nav-link">
+                    <i class="fas fa-chart-line"></i> Visualize
+                </a>
+                <a href="#export" class="nav-link">
+                    <i class="fas fa-download"></i> Export
+                </a>
+                <button class="btn-primary" onclick="runDemo()">
+                    <i class="fas fa-play"></i> Demo
+                </button>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="#upload" class="mobile-nav-link" onclick="toggleMobileMenu()">
+            <i class="fas fa-upload"></i> Upload Logs
+        </a>
+        <a href="#analyze" class="mobile-nav-link" onclick="toggleMobileMenu()">
+            <i class="fas fa-chart-bar"></i> Analyze
+        </a>
+        <a href="#visualize" class="mobile-nav-link" onclick="toggleMobileMenu()">
+            <i class="fas fa-chart-line"></i> Visualize
+        </a>
+        <a href="#export" class="mobile-nav-link" onclick="toggleMobileMenu()">
+            <i class="fas fa-download"></i> Export
+        </a>
+        <button class="btn-primary mobile-demo-btn" onclick="runDemo(); toggleMobileMenu()">
+            <i class="fas fa-play"></i> Run Demo
+        </button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Upload Section -->
+        <section id="upload" class="section active">
+            <div class="section-header">
+                <h2><i class="fas fa-cloud-upload-alt"></i> Upload Log Files</h2>
+                <p>Upload your GitHub logs in JSON, CSV, or text format</p>
+            </div>
+            
+            <div class="upload-container">
+                <!-- Drag & Drop Area -->
+                <div class="upload-area" id="dropArea">
+                    <i class="fas fa-file-upload"></i>
+                    <h3>Drag & Drop Log Files</h3>
+                    <p>Supports: .json, .csv, .txt, .log</p>
+                    <p class="upload-or">or</p>
+                    <label for="fileInput" class="btn-secondary">
+                        <i class="fas fa-folder-open"></i> Browse Files
+                    </label>
+                    <input type="file" id="fileInput" multiple accept=".json,.csv,.txt,.log,.ndjson">
+                </div>
+
+                <!-- File Preview -->
+                <div class="file-preview" id="filePreview">
+                    <h3><i class="fas fa-file"></i> Selected Files</h3>
+                    <div class="file-list" id="fileList">
+                        <div class="no-files">
+                            <i class="fas fa-file-alt"></i>
+                            <p>No files selected</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Log Type Selection -->
+                    <div class="log-type-selector">
+                        <h4>Log Format</h4>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="logType" value="auto" checked>
+                                <span>Auto-detect</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="logType" value="json">
+                                <span>JSON</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="logType" value="csv">
+                                <span>CSV</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="logType" value="text">
+                                <span>Text</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="upload-actions">
+                        <button class="btn-primary" onclick="analyzeLogs()" id="analyzeBtn" disabled>
+                            <i class="fas fa-chart-bar"></i> Analyze Logs
+                        </button>
+                        <button class="btn-secondary" onclick="clearFiles()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sample Data -->
+            <div class="sample-data">
+                <h3><i class="fas fa-vial"></i> Try with Sample Data</h3>
+                <div class="sample-buttons">
+                    <button class="sample-btn" onclick="loadSample('json')">
+                        <i class="fas fa-file-code"></i> JSON Sample
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('csv')">
+                        <i class="fas fa-file-csv"></i> CSV Sample
+                    </button>
+                    <button class="sample-btn" onclick="loadSample('text')">
+                        <i class="fas fa-file-alt"></i> Text Sample
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analysis Section -->
+        <section id="analyze" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-bar"></i> Log Analysis</h2>
+                <p>Detailed analysis of your GitHub activity logs</p>
+            </div>
+
+            <!-- Loading State -->
+            <div class="loading-state" id="loadingState">
+                <div class="spinner"></div>
+                <h3>Analyzing Logs...</h3>
+                <p id="loadingMessage">Processing your log files</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <!-- Analysis Results -->
+            <div class="analysis-results" id="analysisResults" style="display: none;">
+                <!-- Summary Cards -->
+                <div class="summary-cards">
+                    <div class="summary-card total">
+                        <div class="card-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="totalRequests">0</h3>
+                            <p>Total Requests</p>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card users">
+                        <div class="card-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="uniqueUsers">0</h3>
+                            <p>Unique Users</p>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card repos">
+                        <div class="card-icon">
+                            <i class="fas fa-code-branch"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="uniqueRepos">0</h3>
+                            <p>Repositories</p>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-card success">
+                        <div class="card-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3 id="successRate">0%</h3>
+                            <p>Success Rate</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Range -->
+                <div class="time-range-card">
+                    <div class="time-range-header">
+                        <i class="fas fa-calendar-alt"></i>
+                        <h3>Analysis Period</h3>
+                    </div>
+                    <div class="time-range-content">
+                        <div class="time-item">
+                            <span class="time-label">From:</span>
+                            <span class="time-value" id="timeFrom">-</span>
+                        </div>
+                        <div class="time-item">
+                            <span class="time-label">To:</span>
+                            <span class="time-value" id="timeTo">-</span>
+                        </div>
+                        <div class="time-item">
+                            <span class="time-label">Duration:</span>
+                            <span class="time-value" id="timeDuration">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Lists -->
+                <div class="top-lists">
+                    <div class="top-list">
+                        <h3><i class="fas fa-user"></i> Top Users</h3>
+                        <div class="list-container" id="topUsersList">
+                            <div class="list-item">
+                                <span class="list-rank">1</span>
+                                <span class="list-name">octocat</span>
+                                <span class="list-count">1,234</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="top-list">
+                        <h3><i class="fas fa-code-branch"></i> Top Repositories</h3>
+                        <div class="list-container" id="topReposList">
+                            <div class="list-item">
+                                <span class="list-rank">1</span>
+                                <span class="list-name">github/docs</span>
+                                <span class="list-count">567</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="top-list">
+                        <h3><i class="fas fa-network-wired"></i> Top IP Addresses</h3>
+                        <div class="list-container" id="topIPsList">
+                            <div class="list-item">
+                                <span class="list-rank">1</span>
+                                <span class="list-name">192.168.1.1</span>
+                                <span class="list-count">890</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Distribution -->
+                <div class="event-distribution">
+                    <h3><i class="fas fa-chart-pie"></i> Event Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="eventChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Status Codes -->
+                <div class="status-codes">
+                    <h3><i class="fas fa-check-double"></i> Status Codes</h3>
+                    <div class="status-grid" id="statusGrid">
+                        <!-- Filled by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visualization Section -->
+        <section id="visualize" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-line"></i> Visualizations</h2>
+                <p>Interactive charts and visual insights</p>
+            </div>
+
+            <div class="visualization-tabs">
+                <button class="viz-tab active" onclick="showVizTab('timeline')">
+                    <i class="fas fa-timeline"></i> Timeline
+                </button>
+                <button class="viz-tab" onclick="showVizTab('hourly')">
+                    <i class="fas fa-clock"></i> Hourly Pattern
+                </button>
+                <button class="viz-tab" onclick="showVizTab('events')">
+                    <i class="fas fa-chart-bar"></i> Event Types
+                </button>
+                <button class="viz-tab" onclick="showVizTab('status')">
+                    <i class="fas fa-check-circle"></i> Status Codes
+                </button>
+                <button class="viz-tab" onclick="showVizTab('dashboard')">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </button>
+            </div>
+
+            <div class="viz-content">
+                <!-- Timeline Tab -->
+                <div class="viz-tab-content active" id="timelineTab">
+                    <div class="viz-header">
+                        <h3><i class="fas fa-timeline"></i> Activity Timeline</h3>
+                        <div class="viz-controls">
+                            <select id="timelineGranularity" onchange="updateTimeline()">
+                                <option value="hour">Hourly</option>
+                                <option value="day" selected>Daily</option>
+                                <option value="week">Weekly</option>
+                                <option value="month">Monthly</option>
+                            </select>
+                            <button class="btn-secondary" onclick="downloadChart('timeline')">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container-large">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Hourly Pattern Tab -->
+                <div class="viz-tab-content" id="hourlyTab">
+                    <div class="viz-header">
+                        <h3><i class="fas fa-clock"></i> Hourly Activity Pattern</h3>
+                        <button class="btn-secondary" onclick="downloadChart('hourly')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                    <div class="chart-container-large">
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                    <div class="insights" id="hourlyInsights">
+                        <div class="insight">
+                            <i class="fas fa-bolt"></i>
+                            <div>
+                                <h4>Peak Hour</h4>
+                                <p id="peakHour">14:00 - 15:00</p>
+                            </div>
+                        </div>
+                        <div class="insight">
+                            <i class="fas fa-moon"></i>
+                            <div>
+                                <h4>Quiet Hour</h4>
+                                <p id="quietHour">03:00 - 04:00</p>
+                            </div>
+                        </div>
+                        <div class="insight">
+                            <i class="fas fa-chart-line"></i>
+                            <div>
+                                <h4>Average Requests</h4>
+                                <p id="avgHourly">245 per hour</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Events Tab -->
+                <div class="viz-tab-content" id="eventsTab">
+                    <div class="viz-header">
+                        <h3><i class="fas fa-chart-bar"></i> Event Type Distribution</h3>
+                        <div class="viz-controls">
+                            <select id="eventsSort" onchange="updateEventsChart()">
+                                <option value="frequency">Sort by Frequency</option>
+                                <option value="alphabetical">Sort Alphabetically</option>
+                            </select>
+                            <button class="btn-secondary" onclick="downloadChart('events')">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-container-large">
+                        <canvas id="eventsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Status Tab -->
+                <div class="viz-tab-content" id="statusTab">
+                    <div class="viz-header">
+                        <h3><i class="fas fa-check-circle"></i> Status Code Distribution</h3>
+                        <button class="btn-secondary" onclick="downloadChart('status')">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                    </div>
+                    <div class="chart-container-large">
+                        <div class="chart-row">
+                            <div class="chart-half">
+                                <canvas id="statusChart"></canvas>
+                            </div>
+                            <div class="chart-half">
+                                <div class="status-details">
+                                    <h4>Status Code Breakdown</h4>
+                                    <table class="status-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Code</th>
+                                                <th>Category</th>
+                                                <th>Count</th>
+                                                <th>Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="statusTableBody">
+                                            <!-- Filled by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div class="viz-tab-content" id="dashboardTab">
+                    <div class="viz-header">
+                        <h3><i class="fas fa-tachometer-alt"></i> Interactive Dashboard</h3>
+                        <button class="btn-secondary" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="dashboard-card-header">
+                                <h4>Requests Over Time</h4>
+                            </div>
+                            <div class="dashboard-card-content">
+                                <div id="dashboardTimeline"></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-card-header">
+                                <h4>Hourly Heatmap</h4>
+                            </div>
+                            <div class="dashboard-card-content">
+                                <div id="dashboardHeatmap"></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-card-header">
+                                <h4>Event Type Treemap</h4>
+                            </div>
+                            <div class="dashboard-card-content">
+                                <div id="dashboardTreemap"></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <div class="dashboard-card-header">
+                                <h4>User Activity</h4>
+                            </div>
+                            <div class="dashboard-card-content">
+                                <div id="dashboardUsers"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Export Section -->
+        <section id="export" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-download"></i> Export Results</h2>
+                <p>Download your analysis in various formats</p>
+            </div>
+
+            <div class="export-options">
+                <div class="export-card">
+                    <div class="export-icon">
+                        <i class="fas fa-file-csv"></i>
+                    </div>
+                    <h3>CSV Export</h3>
+                    <p>Raw log data in CSV format</p>
+                    <button class="btn-primary" onclick="exportData('csv')">
+                        <i class="fas fa-download"></i> Download CSV
+                    </button>
+                </div>
+                
+                <div class="export-card">
+                    <div class="export-icon">
+                        <i class="fas fa-file-code"></i>
+                    </div>
+                    <h3>JSON Export</h3>
+                    <p>Full analysis results in JSON</p>
+                    <button class="btn-primary" onclick="exportData('json')">
+                        <i class="fas fa-download"></i> Download JSON
+                    </button>
+                </div>
+                
+                <div class="export-card">
+                    <div class="export-icon">
+                        <i class="fas fa-file-excel"></i>
+                    </div>
+                    <h3>Excel Export</h3>
+                    <p>Formatted Excel report</p>
+                    <button class="btn-primary" onclick="exportData('excel')">
+                        <i class="fas fa-download"></i> Download Excel
+                    </button>
+                </div>
+                
+                <div class="export-card">
+                    <div class="export-icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <h3>PDF Report</h3>
+                    <p>Complete analysis report</p>
+                    <button class="btn-primary" onclick="exportData('pdf')">
+                        <i class="fas fa-download"></i> Download PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Export -->
+            <div class="custom-export">
+                <h3><i class="fas fa-cogs"></i> Custom Export</h3>
+                <div class="custom-export-form">
+                    <div class="form-group">
+                        <label for="exportFormat">Format:</label>
+                        <select id="exportFormat">
+                            <option value="csv">CSV</option>
+                            <option value="json">JSON</option>
+                            <option value="excel">Excel</option>
+                            <option value="html">HTML</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="exportData">Include:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="exportData" value="summary" checked>
+                                <span>Summary Statistics</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="exportData" value="logs" checked>
+                                <span>Log Data</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="exportData" value="charts">
+                                <span>Charts</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="exportData" value="anomalies">
+                                <span>Anomaly Detection</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="exportName">Filename:</label>
+                        <input type="text" id="exportName" placeholder="github_log_analysis">
+                    </div>
+                    
+                    <button class="btn-primary" onclick="customExport()">
+                        <i class="fas fa-download"></i> Generate Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- API Integration -->
+            <div class="api-integration">
+                <h3><i class="fas fa-code"></i> API Integration</h3>
+                <div class="code-snippet">
+                    <pre><code class="javascript">
+// JavaScript API Example
+const analyzer = new GitHubLogAnalyzer();
+
+// Load logs
+await analyzer.loadLogs('path/to/logs.json');
+
+// Get summary
+const summary = analyzer.getSummary();
+
+// Create visualization
+const chart = analyzer.createChart('timeline');
+
+// Export data
+await analyzer.exportData('csv', 'output.csv');
+                    </code></pre>
+                </div>
+                <div class="api-links">
+                    <a href="#" class="api-link">
+                        <i class="fas fa-book"></i> API Documentation
+                    </a>
+                    <a href="#" class="api-link">
+                        <i class="fas fa-download"></i> Download Python Library
+                    </a>
+                    <a href="#" class="api-link">
+                        <i class="fab fa-github"></i> View on GitHub
+                    </a>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <i class="fab fa-github"></i>
+                <h3>GitHub Log Analyzer</h3>
+                <p>Interactive analysis tool for GitHub activity logs</p>
+            </div>
+            
+            <div class="footer-links">
+                <div class="footer-column">
+                    <h4>Product</h4>
+                    <a href="#upload">Upload</a>
+                    <a href="#analyze">Analyze</a>
+                    <a href="#visualize">Visualize</a>
+                    <a href="#export">Export</a>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Resources</h4>
+                    <a href="#">Documentation</a>
+                    <a href="#">API Reference</a>
+                    <a href="#">Examples</a>
+                    <a href="#">Tutorials</a>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Community</h4>
+                    <a href="#"><i class="fab fa-github"></i> GitHub</a>
+                    <a href="#"><i class="fab fa-discord"></i> Discord</a>
+                    <a href="#"><i class="fab fa-twitter"></i> Twitter</a>
+                    <a href="#"><i class="fab fa-stack-overflow"></i> Stack Overflow</a>
+                </div>
+                
+                <div class="footer-column">
+                    <h4>Legal</h4>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Cookie Policy</a>
+                    <a href="#">License</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2024 GitHub Log Analyzer. All rights reserved.</p>
+            <div class="footer-stats">
+                <span><i class="fas fa-code"></i> Built with Python & JavaScript</span>
+                <span><i class="fas fa-heart"></i> Made with ❤️ for developers</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- JavaScript -->
+    <script src="js/app.js"></script>
+    <script src="js/visualizer.js"></script>
+    <script src="js/analyzer.js"></script>
+    <script src="js/exporter.js"></script>
+</body>
+</html>
