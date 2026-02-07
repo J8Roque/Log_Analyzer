@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Log Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1><i class="fas fa-search"></i> Security Log Analyzer</h1>
+            <p>Analyze, monitor, and detect threats from system logs</p>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Log Upload & Controls -->
+            <div class="left-panel">
+                <div class="upload-section">
+                    <h2><i class="fas fa-upload"></i> Upload Log Files</h2>
+                    <div class="upload-area" id="drop-area">
+                        <i class="fas fa-file-upload"></i>
+                        <p>Drag & drop log files here</p>
+                        <p class="subtext">or click to browse</p>
+                        <input type="file" id="file-input" multiple accept=".log,.txt">
+                    </div>
+                    
+                    <div class="log-sources">
+                        <h3>Sample Logs:</h3>
+                        <div class="sample-buttons">
+                            <button class="sample-btn" data-log="apache">
+                                <i class="fas fa-server"></i> Apache Logs
+                            </button>
+                            <button class="sample-btn" data-log="auth">
+                                <i class="fas fa-user-shield"></i> Auth Logs
+                            </button>
+                            <button class="sample-btn" data-log="firewall">
+                                <i class="fas fa-fire"></i> Firewall Logs
+                            </button>
+                            <button class="sample-btn" data-log="system">
+                                <i class="fas fa-desktop"></i> System Logs
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analysis Controls -->
+                <div class="controls-section">
+                    <h2><i class="fas fa-sliders-h"></i> Analysis Controls</h2>
+                    
+                    <div class="control-group">
+                        <label>Time Range:</label>
+                        <select id="time-range">
+                            <option value="all">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">Last 7 Days</option>
+                            <option value="month">Last 30 Days</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Severity Filter:</label>
+                        <div class="severity-filters">
+                            <label class="filter-option critical">
+                                <input type="checkbox" checked> Critical
+                            </label>
+                            <label class="filter-option high">
+                                <input type="checkbox" checked> High
+                            </label>
+                            <label class="filter-option medium">
+                                <input type="checkbox" checked> Medium
+                            </label>
+                            <label class="filter-option low">
+                                <input type="checkbox"> Low
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>Search Logs:</label>
+                        <div class="search-box">
+                            <input type="text" id="log-search" placeholder="Search for IP, error, user...">
+                            <button class="search-btn"><i class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn-primary" id="analyze-btn">
+                            <i class="fas fa-play"></i> Start Analysis
+                        </button>
+                        <button class="btn-secondary" id="export-btn">
+                            <i class="fas fa-download"></i> Export Report
+                        </button>
+                        <button class="btn-danger" id="clear-btn">
+                            <i class="fas fa-trash"></i> Clear Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Analysis Results -->
+            <div class="right-panel">
+                <!-- Summary Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card total">
+                        <h3>Total Logs</h3>
+                        <div class="stat-value" id="total-logs">0</div>
+                        <p>Entries analyzed</p>
+                    </div>
+                    <div class="stat-card threats">
+                        <h3>Threats Found</h3>
+                        <div class="stat-value" id="threat-count">0</div>
+                        <p>Potential security issues</p>
+                    </div>
+                    <div class="stat-card errors">
+                        <h3>Errors</h3>
+                        <div class="stat-value" id="error-count">0</div>
+                        <p>System/Application errors</p>
+                    </div>
+                    <div class="stat-card unique-ips">
+                        <h3>Unique IPs</h3>
+                        <div class="stat-value" id="unique-ips">0</div>
+                        <p>Distinct IP addresses</p>
+                    </div>
+                </div>
+
+                <!-- Threat Detection Section -->
+                <div class="threats-section">
+                    <h2><i class="fas fa-exclamation-triangle"></i> Threat Detection</h2>
+                    <div class="threats-list" id="threats-list">
+                        <!-- Threats will be listed here -->
+                    </div>
+                </div>
+
+                <!-- Log Viewer -->
+                <div class="log-viewer-section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-file-alt"></i> Log Viewer</h2>
+                        <div class="view-controls">
+                            <button class="view-btn active" data-view="all">All Logs</button>
+                            <button class="view-btn" data-view="errors">Errors Only</button>
+                            <button class="view-btn" data-view="threats">Threats Only</button>
+                        </div>
+                    </div>
+                    <div class="log-viewer" id="log-viewer">
+                        <!-- Log entries will appear here -->
+                    </div>
+                </div>
+
+                <!-- Visualizations -->
+                <div class="visualization-section">
+                    <h2><i class="fas fa-chart-bar"></i> Analysis Visualizations</h2>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3>Logs by Severity</h3>
+                            <canvas id="severity-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Top IP Addresses</h3>
+                            <canvas id="ip-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Activity Timeline</h3>
+                            <canvas id="timeline-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Attack Types</h3>
+                            <canvas id="attack-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="analyzer.js"></script>
+</body>
+</html>
