@@ -3,181 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Security Log Analyzer</title>
+    <title>Security Analysis Dashboard</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <h1><i class="fas fa-search"></i> Security Log Analyzer</h1>
-            <p>Analyze, monitor, and detect threats from system logs</p>
+        <header class="dashboard-header">
+            <h1><i class="fas fa-shield-alt"></i> Security Analysis Dashboard</h1>
+            <p class="timestamp">Last updated: <span id="current-time"></span></p>
         </header>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Left Panel: Log Upload & Controls -->
-            <div class="left-panel">
-                <div class="upload-section">
-                    <h2><i class="fas fa-upload"></i> Upload Log Files</h2>
-                    <div class="upload-area" id="drop-area">
-                        <i class="fas fa-file-upload"></i>
-                        <p>Drag & drop log files here</p>
-                        <p class="subtext">or click to browse</p>
-                        <input type="file" id="file-input" multiple accept=".log,.txt">
-                    </div>
-                    
-                    <div class="log-sources">
-                        <h3>Sample Logs:</h3>
-                        <div class="sample-buttons">
-                            <button class="sample-btn" data-log="apache">
-                                <i class="fas fa-server"></i> Apache Logs
-                            </button>
-                            <button class="sample-btn" data-log="auth">
-                                <i class="fas fa-user-shield"></i> Auth Logs
-                            </button>
-                            <button class="sample-btn" data-log="firewall">
-                                <i class="fas fa-fire"></i> Firewall Logs
-                            </button>
-                            <button class="sample-btn" data-log="system">
-                                <i class="fas fa-desktop"></i> System Logs
-                            </button>
-                        </div>
-                    </div>
+        <main class="dashboard-grid">
+            <!-- Severity Section -->
+            <section class="dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-exclamation-triangle"></i> Logs by Severity</h2>
+                    <span class="card-badge">1,032 total</span>
                 </div>
+                <ul class="severity-list">
+                    <li class="severity-item severity-critical">
+                        <div class="severity-label">
+                            <span class="severity-dot"></span>
+                            <span>Critical</span>
+                        </div>
+                        <div class="severity-stats">
+                            <span class="severity-count">124</span>
+                            <span class="severity-percent">12%</span>
+                        </div>
+                    </li>
+                    <li class="severity-item severity-high">
+                        <div class="severity-label">
+                            <span class="severity-dot"></span>
+                            <span>High</span>
+                        </div>
+                        <div class="severity-stats">
+                            <span class="severity-count">289</span>
+                            <span class="severity-percent">28%</span>
+                        </div>
+                    </li>
+                    <li class="severity-item severity-medium">
+                        <div class="severity-label">
+                            <span class="severity-dot"></span>
+                            <span>Medium</span>
+                        </div>
+                        <div class="severity-stats">
+                            <span class="severity-count">361</span>
+                            <span class="severity-percent">35%</span>
+                        </div>
+                    </li>
+                    <li class="severity-item severity-low">
+                        <div class="severity-label">
+                            <span class="severity-dot"></span>
+                            <span>Low</span>
+                        </div>
+                        <div class="severity-stats">
+                            <span class="severity-count">186</span>
+                            <span class="severity-percent">18%</span>
+                        </div>
+                    </li>
+                    <li class="severity-item severity-info">
+                        <div class="severity-label">
+                            <span class="severity-dot"></span>
+                            <span>Info</span>
+                        </div>
+                        <div class="severity-stats">
+                            <span class="severity-count">72</span>
+                            <span class="severity-percent">7%</span>
+                        </div>
+                    </li>
+                </ul>
+            </section>
 
-                <!-- Analysis Controls -->
-                <div class="controls-section">
-                    <h2><i class="fas fa-sliders-h"></i> Analysis Controls</h2>
-                    
-                    <div class="control-group">
-                        <label>Time Range:</label>
-                        <select id="time-range">
-                            <option value="all">All Time</option>
-                            <option value="today">Today</option>
-                            <option value="week">Last 7 Days</option>
-                            <option value="month">Last 30 Days</option>
-                        </select>
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>Severity Filter:</label>
-                        <div class="severity-filters">
-                            <label class="filter-option critical">
-                                <input type="checkbox" checked> Critical
-                            </label>
-                            <label class="filter-option high">
-                                <input type="checkbox" checked> High
-                            </label>
-                            <label class="filter-option medium">
-                                <input type="checkbox" checked> Medium
-                            </label>
-                            <label class="filter-option low">
-                                <input type="checkbox"> Low
-                            </label>
+            <!-- Top IPs Section -->
+            <section class="dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-network-wired"></i> Top IP Addresses</h2>
+                    <span class="card-badge">5 sources</span>
+                </div>
+                <div class="ip-grid">
+                    <div class="ip-item ip-threat-high">
+                        <div class="ip-address">203.0.113.45</div>
+                        <div class="ip-info">
+                            <span class="ip-threat">High Threat</span>
+                            <span class="ip-count">142 events</span>
                         </div>
+                        <i class="fas fa-external-link-alt ip-icon"></i>
                     </div>
-                    
-                    <div class="control-group">
-                        <label>Search Logs:</label>
-                        <div class="search-box">
-                            <input type="text" id="log-search" placeholder="Search for IP, error, user...">
-                            <button class="search-btn"><i class="fas fa-search"></i></button>
+                    <div class="ip-item ip-threat-medium">
+                        <div class="ip-address">192.168.1.105</div>
+                        <div class="ip-info">
+                            <span class="ip-threat">Medium Threat</span>
+                            <span class="ip-count">98 events</span>
                         </div>
+                        <i class="fas fa-desktop ip-icon"></i>
                     </div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn-primary" id="analyze-btn">
-                            <i class="fas fa-play"></i> Start Analysis
-                        </button>
-                        <button class="btn-secondary" id="export-btn">
-                            <i class="fas fa-download"></i> Export Report
-                        </button>
-                        <button class="btn-danger" id="clear-btn">
-                            <i class="fas fa-trash"></i> Clear Logs
-                        </button>
+                    <div class="ip-item ip-threat-high">
+                        <div class="ip-address">198.51.100.23</div>
+                        <div class="ip-info">
+                            <span class="ip-threat">High Threat</span>
+                            <span class="ip-count">76 events</span>
+                        </div>
+                        <i class="fas fa-external-link-alt ip-icon"></i>
+                    </div>
+                    <div class="ip-item ip-threat-low">
+                        <div class="ip-address">10.0.0.5</div>
+                        <div class="ip-info">
+                            <span class="ip-threat">Low Threat</span>
+                            <span class="ip-count">45 events</span>
+                        </div>
+                        <i class="fas fa-desktop ip-icon"></i>
+                    </div>
+                    <div class="ip-item ip-threat-low">
+                        <div class="ip-address">192.168.1.106</div>
+                        <div class="ip-info">
+                            <span class="ip-threat">Low Threat</span>
+                            <span class="ip-count">32 events</span>
+                        </div>
+                        <i class="fas fa-desktop ip-icon"></i>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Right Panel: Analysis Results -->
-            <div class="right-panel">
-                <!-- Summary Stats -->
-                <div class="stats-grid">
-                    <div class="stat-card total">
-                        <h3>Total Logs</h3>
-                        <div class="stat-value" id="total-logs">0</div>
-                        <p>Entries analyzed</p>
+            <!-- Timeline Section -->
+            <section class="dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-line"></i> Activity Timeline</h2>
+                    <span class="card-badge">24h</span>
+                </div>
+                <div class="timeline-container">
+                    <div class="timeline-visual">
+                        <div class="timeline-bar" style="height: 30%;"></div>
+                        <div class="timeline-bar" style="height: 50%;"></div>
+                        <div class="timeline-bar" style="height: 80%;"></div>
+                        <div class="timeline-bar" style="height: 100%;"></div>
+                        <div class="timeline-bar" style="height: 70%;"></div>
+                        <div class="timeline-bar" style="height: 40%;"></div>
+                        <div class="timeline-bar" style="height: 20%;"></div>
                     </div>
-                    <div class="stat-card threats">
-                        <h3>Threats Found</h3>
-                        <div class="stat-value" id="threat-count">0</div>
-                        <p>Potential security issues</p>
-                    </div>
-                    <div class="stat-card errors">
-                        <h3>Errors</h3>
-                        <div class="stat-value" id="error-count">0</div>
-                        <p>System/Application errors</p>
-                    </div>
-                    <div class="stat-card unique-ips">
-                        <h3>Unique IPs</h3>
-                        <div class="stat-value" id="unique-ips">0</div>
-                        <p>Distinct IP addresses</p>
+                    <div class="timeline-labels">
+                        <span>00:00</span>
+                        <span>06:00</span>
+                        <span>12:00</span>
+                        <span>18:00</span>
+                        <span>24:00</span>
                     </div>
                 </div>
+                <div class="timeline-stats">
+                    <div class="stat">
+                        <span class="stat-label">Peak Time</span>
+                        <span class="stat-value">14:00-16:00</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Total Logs</span>
+                        <span class="stat-value">1,032</span>
+                    </div>
+                </div>
+            </section>
 
-                <!-- Threat Detection Section -->
-                <div class="threats-section">
-                    <h2><i class="fas fa-exclamation-triangle"></i> Threat Detection</h2>
-                    <div class="threats-list" id="threats-list">
-                        <!-- Threats will be listed here -->
+            <!-- Attack Types Section -->
+            <section class="dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-bug"></i> Attack Types</h2>
+                    <span class="card-badge">5 types</span>
+                </div>
+                <div class="attack-list">
+                    <div class="attack-item attack-critical">
+                        <div class="attack-label">
+                            <span class="attack-name">Bruteforce</span>
+                            <span class="attack-bar-container">
+                                <span class="attack-bar" style="width: 85%;"></span>
+                            </span>
+                        </div>
+                        <span class="attack-percent">42%</span>
+                    </div>
+                    <div class="attack-item attack-high">
+                        <div class="attack-label">
+                            <span class="attack-name">Port Scan</span>
+                            <span class="attack-bar-container">
+                                <span class="attack-bar" style="width: 50%;"></span>
+                            </span>
+                        </div>
+                        <span class="attack-percent">23%</span>
+                    </div>
+                    <div class="attack-item attack-medium">
+                        <div class="attack-label">
+                            <span class="attack-name">XSS</span>
+                            <span class="attack-bar-container">
+                                <span class="attack-bar" style="width: 40%;"></span>
+                            </span>
+                        </div>
+                        <span class="attack-percent">18%</span>
+                    </div>
+                    <div class="attack-item attack-medium">
+                        <div class="attack-label">
+                            <span class="attack-name">SQLi</span>
+                            <span class="attack-bar-container">
+                                <span class="attack-bar" style="width: 25%;"></span>
+                            </span>
+                        </div>
+                        <span class="attack-percent">12%</span>
+                    </div>
+                    <div class="attack-item attack-low">
+                        <div class="attack-label">
+                            <span class="attack-name">Traversal</span>
+                            <span class="attack-bar-container">
+                                <span class="attack-bar" style="width: 12%;"></span>
+                            </span>
+                        </div>
+                        <span class="attack-percent">5%</span>
                     </div>
                 </div>
+            </section>
+        </main>
 
-                <!-- Log Viewer -->
-                <div class="log-viewer-section">
-                    <div class="section-header">
-                        <h2><i class="fas fa-file-alt"></i> Log Viewer</h2>
-                        <div class="view-controls">
-                            <button class="view-btn active" data-view="all">All Logs</button>
-                            <button class="view-btn" data-view="errors">Errors Only</button>
-                            <button class="view-btn" data-view="threats">Threats Only</button>
-                        </div>
-                    </div>
-                    <div class="log-viewer" id="log-viewer">
-                        <!-- Log entries will appear here -->
-                    </div>
-                </div>
-
-                <!-- Visualizations -->
-                <div class="visualization-section">
-                    <h2><i class="fas fa-chart-bar"></i> Analysis Visualizations</h2>
-                    <div class="charts-grid">
-                        <div class="chart-container">
-                            <h3>Logs by Severity</h3>
-                            <canvas id="severity-chart"></canvas>
-                        </div>
-                        <div class="chart-container">
-                            <h3>Top IP Addresses</h3>
-                            <canvas id="ip-chart"></canvas>
-                        </div>
-                        <div class="chart-container">
-                            <h3>Activity Timeline</h3>
-                            <canvas id="timeline-chart"></canvas>
-                        </div>
-                        <div class="chart-container">
-                            <h3>Attack Types</h3>
-                            <canvas id="attack-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <footer class="dashboard-footer">
+            <p>Security Dashboard v1.0 • Auto-refresh every 5 minutes</p>
+        </footer>
     </div>
 
-    <!-- JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="analyzer.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
