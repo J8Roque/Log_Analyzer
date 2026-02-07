@@ -79,32 +79,30 @@ window.addEventListener("load", () => {
  */
 async function runDemo() {
   try {
-    // Load sample from repo
+    console.log("[Demo] starting");
     const res = await fetch("samples/sample_github_logs.json", { cache: "no-store" });
+    console.log("[Demo] status", res.status);
     if (!res.ok) throw new Error(`Sample not found (HTTP ${res.status})`);
 
     const data = await res.json();
+    console.log("[Demo] records", Array.isArray(data) ? data.length : data);
 
-    // Store globally so analyzer.js can use it
     window.__uploadedLogs = data;
-    window.uploadedLogs = data;  // optional alias
-    window.logsData = data;      // optional alias
 
-    // Enable Analyze button
     const analyzeBtn = document.getElementById("analyzeBtn");
     if (analyzeBtn) analyzeBtn.disabled = false;
 
-    // Switch to Analyze section
-    if (typeof showSection === "function") showSection("#analyze");
+    showSection("#analyze");
 
-    // Run analysis
     if (typeof analyzeLogs === "function") {
       analyzeLogs();
+      console.log("[Demo] analyzeLogs called");
     } else {
       alert("analyzeLogs() not found. Check js/analyzer.js is loading.");
     }
-  } catch (err) {
-    console.error(err);
-    alert("Demo failed: " + err.message);
+  } catch (e) {
+    console.error(e);
+    alert("Demo failed: " + e.message);
   }
 }
+
