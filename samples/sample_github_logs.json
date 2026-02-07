@@ -1,0 +1,80 @@
+[
+  {
+    "timestamp": "2026-02-06T08:12:21Z",
+    "username": "octocat",
+    "repository": "github/docs",
+    "event_type": "pull_request",
+    "action": "opened",
+    "status": 201,
+    "ip": "203.0.113.10",
+    "user_agent": "Mozilla/5.0",
+    "path": "/repos/github/docs/pulls",
+    "method": "POST",
+    "bytes": 1842
+  },
+  {
+    "timestamp": "2026-02-06T08:21:44Z",
+    "username": "dev-jen",
+    "repository": "acme/api",
+    "event_type": "push",
+    "action": "pushed",
+    "status": 200,
+    "ip": "198.51.100.22",
+    "user_agent": "git/2.44.0",
+    "path": "/repos/acme/api/git/refs",
+    "method": "POST",
+    "bytes": 924
+  },
+  {
+    "timestamp": "2026-02-06T10:44:51Z",
+    "username": "unknown",
+    "repository": "acme/api",
+    "event_type": "auth",
+    "action": "login_failed",
+    "status": 401,
+    "ip": "45.67.89.10",
+    "user_agent": "curl/8.2.1",
+    "path": "/login",
+    "method": "POST",
+    "bytes": 318
+  },
+  {
+    "timestamp": "2026-02-06T11:12:09Z",
+    "username": "maria",
+    "repository": "acme/frontend",
+    "event_type": "issue",
+    "action": "opened",
+    "status": 201,
+    "ip": "203.0.113.77",
+    "user_agent": "Mozilla/5.0",
+    "path": "/repos/acme/frontend/issues",
+    "method": "POST",
+    "bytes": 702
+  },
+  {
+    "timestamp": "2026-02-06T13:21:17Z",
+    "username": "dev-jen",
+    "repository": "acme/api",
+    "event_type": "api",
+    "action": "rate_limited",
+    "status": 429,
+    "ip": "198.51.100.22",
+    "user_agent": "python-requests/2.31.0",
+    "path": "/repos/acme/api/commits",
+    "method": "GET",
+    "bytes": 128
+  },
+  {
+    "timestamp": "2026-02-06T15:33:48Z",
+    "username": "maria",
+    "repository": "acme/frontend",
+    "event_type": "auth",
+    "action": "login_success",
+    "status": 200,
+    "ip": "203.0.113.77",
+    "user_agent": "Mozilla/5.0",
+    "path": "/login",
+    "method": "POST",
+    "bytes": 410
+  }
+]
