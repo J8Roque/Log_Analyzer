@@ -1,32 +1,73 @@
 // analyzer.js
-// Purpose: handle uploads + parsing + analysis + wiring the Demo sample into the same pipeline
+// FULL UPGRADE (GitHub Pages friendly, Demo works, no infinite loading, better errors, better sample loading)
+// Notes are included as comments where upgrades matter.
 
 let uploadedFiles = [];
 let parsedRows = [];
 
 const $ = (id) => document.getElementById(id);
 
+/* =============================
+   UPGRADE NOTES (high level)
+   1) Demo now loads from /samples/sample_github_logs.json (real repo file) OR falls back to generated data
+   2) analyzeLogs() no longer hangs: it always hides spinner in finally{}
+   3) Better file parsing: JSON array, JSON object, NDJSON (one JSON per line), CSV
+   4) Better time range output + duration
+   5) Safe DOM access (won’t crash if an element missing)
+   6) Clear user feedback via toast() that does not block the UI
+============================= */
+
 /* -----------------------------
-   Notes: what each part does
---------------------------------
-uploadedFiles  = files chosen by user (File objects)
-parsedRows     = normalized log rows ready for stats/charts
-
-setupUpload()  = wires drag drop + file input
-addFiles()     = validates extensions and stores files
-analyzeLogs()  = reads either demo data OR uploaded files, parses, normalizes, computes stats
-normalizeRow() = converts many possible field names into a consistent schema
-fillTopList()  = renders Top Users, Top Repos, Top IPs
-loadSample()   = creates a quick fake dataset in memory (not needed if you use runDemo from app.js)
+   Simple non blocking toast (replaces alert)
 -------------------------------- */
+function toast(msg, type = "info") {
+  const container = $("toastContainer");
+  if (!container) {
+    console.log(`[${type}]`, msg);
+    return;
+  }
 
-function toast(msg) {
-  // super simple toast (you can replace later with a real toast UI)
-  alert(msg);
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = `
+    <div class="toast-inner">
+      <div class="toast-dot ${type}"></div>
+      <div class="toast-text">${escapeHtml(msg)}</div>
+      <button class="toast-x" aria-label="Close">×</button>
+    </div>
+  `;
+
+  container.appendChild(el);
+
+  const close = () => {
+    el.classList.add("hide");
+    setTimeout(() => el.remove(), 180);
+  };
+
+  el.querySelector(".toast-x")?.addEventListener("click", close);
+  setTimeout(close, 2600);
 }
 
+/* -----------------------------
+   Navigation helpers
+-------------------------------- */
+function showSection(id) {
+  document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+  const el = document.querySelector(id);
+  if (el) el.classList.add("active");
+
+  document.querySelectorAll(".nav-link").forEach((a) => a.classList.remove("active"));
+  document.querySelectorAll(`.nav-link[href="${id}"]`).forEach((a) => a.classList.add("active"));
+
+  history.replaceState(null, "", id);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+window.showSection = showSection;
+
+/* -----------------------------
+   Upload UI
+-------------------------------- */
 function getSelectedLogType() {
-  // reads the radio selection: auto, json, csv, text
   const el = document.querySelector('input[name="logType"]:checked');
   return el ? el.value : "auto";
 }
@@ -34,13 +75,16 @@ function getSelectedLogType() {
 function clearFiles() {
   uploadedFiles = [];
   parsedRows = [];
-  window.__uploadedLogs = undefined; // also clear demo data if present
-
   if ($("fileInput")) $("fileInput").value = "";
   renderFileList();
-  if ($("analyzeBtn")) $("analyzeBtn").disabled = true;
+  setAnalyzeEnabled(false);
+  toast("Cleared files.", "info");
+}
+window.clearFiles = clearFiles;
 
-  toast("Cleared files.");
+function setAnalyzeEnabled(enabled) {
+  const btn = $("analyzeBtn");
+  if (btn) btn.disabled = !enabled;
 }
 
 function renderFileList() {
@@ -64,7 +108,7 @@ function renderFileList() {
       <div class="file-info">
         <i class="fas fa-file file-icon"></i>
         <div class="file-details">
-          <div class="file-name">${escapeHtml(f.name)}</div>
+          <div class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
           <div class="file-size">${(f.size / 1024).toFixed(1)} KB</div>
         </div>
       </div>
@@ -80,21 +124,20 @@ function renderFileList() {
 function removeFile(i) {
   uploadedFiles.splice(i, 1);
   renderFileList();
-  if ($("analyzeBtn")) $("analyzeBtn").disabled = uploadedFiles.length === 0;
+  setAnalyzeEnabled(uploadedFiles.length > 0);
 }
+window.removeFile = removeFile;
 
 function setupUpload() {
   const input = $("fileInput");
   const dropArea = $("dropArea");
 
-  // file picker
   if (input) {
     input.addEventListener("change", (e) => {
       addFiles([...e.target.files]);
     });
   }
 
-  // drag drop
   if (dropArea) {
     ["dragenter", "dragover"].forEach((evt) => {
       dropArea.addEventListener(evt, (e) => {
@@ -115,6 +158,9 @@ function setupUpload() {
     dropArea.addEventListener("drop", (e) => {
       addFiles([...e.dataTransfer.files]);
     });
+
+    // UPGRADE: click on dropArea opens file picker
+    dropArea.addEventListener("click", () => input?.click());
   }
 }
 
@@ -123,24 +169,24 @@ function addFiles(files) {
   const good = files.filter((f) => allowed.some((ext) => f.name.toLowerCase().endsWith(ext)));
 
   if (good.length === 0) {
-    toast("No supported files. Use .json, .csv, .txt, .log, .ndjson");
+    toast("No supported files. Use .json, .csv, .txt, .log, .ndjson", "warn");
     return;
   }
 
   uploadedFiles.push(...good);
   renderFileList();
-  if ($("analyzeBtn")) $("analyzeBtn").disabled = uploadedFiles.length === 0;
-
-  // if user uploads files, demo data should not interfere
-  window.__uploadedLogs = undefined;
+  setAnalyzeEnabled(uploadedFiles.length > 0);
+  toast(`Added ${good.length} file(s).`, "success");
 }
 
+/* -----------------------------
+   Parsing helpers
+-------------------------------- */
 async function readFileText(file) {
   return await file.text();
 }
 
 function autoDetect(text) {
-  // quick format detection
   const s = text.trimStart();
   if (s.startsWith("{") || s.startsWith("[")) return "json";
   const first = text.split(/\r?\n/)[0] || "";
@@ -148,139 +194,126 @@ function autoDetect(text) {
   return "text";
 }
 
-/**
- * normalizeRow(obj)
- * Converts different field names into one consistent shape your UI expects.
- * This makes your analyzer work with different log formats.
- */
 function normalizeRow(obj) {
+  // UPGRADE: normalize common field names + keep raw as fallback
+  const ts = obj.timestamp || obj.created_at || obj.time || obj.date || obj.datetime || "";
+  const user = obj.username || obj.user || obj.actor || obj.login || "";
+  const repo = obj.repository || obj.repo || obj.repo_name || obj.full_name || "";
+  const ev = obj.event_type || obj.action || obj.event || obj.type || obj.eventName || "";
+  const st = obj.status || obj.status_code || obj.code || obj.http_status || "";
+  const ip = obj.ip_address || obj.ip || obj.remote_ip || obj.client_ip || "";
+
   return {
-    timestamp: obj.timestamp || obj.created_at || obj.time || obj.date || "",
-    username: obj.username || obj.user || obj.actor || obj.login || "",
-    repository: obj.repository || obj.repo || obj.repo_name || obj.repo_full_name || "",
-    event_type: obj.event_type || obj.event || obj.type || obj.action || "",
-    status: obj.status || obj.status_code || obj.code || "",
-    ip_address: obj.ip_address || obj.ip || obj.remote_ip || "",
+    timestamp: ts,
+    username: user,
+    repository: repo,
+    event_type: ev,
+    status: st,
+    ip_address: ip,
+    _raw: obj,
   };
 }
 
-/* -----------------------------
-   Upgrade: unified analyzer
-   - Works with demo (window.__uploadedLogs)
-   - Works with uploads (uploadedFiles)
--------------------------------- */
-async function analyzeLogs() {
-  // Show analyze section and loading
-  safeDisplay("#analysisResults", "none");
-  safeDisplay("#loadingState", "block");
-  if (typeof showSection === "function") showSection("#analyze");
+function parseJsonLoose(text) {
+  // UPGRADE: supports JSON array, JSON object, NDJSON lines
+  const trimmed = text.trim();
+  if (!trimmed) return [];
 
-  // 1) Demo path: window.__uploadedLogs exists and has data
-  if (Array.isArray(window.__uploadedLogs) && window.__uploadedLogs.length > 0) {
-    parsedRows = window.__uploadedLogs.map(normalizeRow);
-    updateProgress(100);
-    renderAnalysis(parsedRows);
-    return;
+  // If it begins with [ or { treat as normal JSON
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    const obj = JSON.parse(trimmed);
+    if (Array.isArray(obj)) return obj.map(normalizeRow);
+    if (obj && typeof obj === "object") return [normalizeRow(obj)];
+    return [];
   }
 
-  // 2) Upload path
-  if (uploadedFiles.length === 0) {
-    safeDisplay("#loadingState", "none");
-    toast("Upload a file first or click Demo.");
-    return;
-  }
-
-  parsedRows = [];
-  const forced = getSelectedLogType();
-
-  for (let i = 0; i < uploadedFiles.length; i++) {
-    const f = uploadedFiles[i];
-    const txt = await readFileText(f);
-    const type = forced === "auto" ? autoDetect(txt) : forced;
-
-    if (type === "csv") {
-      const res = Papa.parse(txt, { header: true, skipEmptyLines: true });
-      const rows = (res.data || []).map(normalizeRow);
-      parsedRows.push(...rows);
-    } else if (type === "json") {
-      const obj = JSON.parse(txt);
-
-      // NDJSON support: sometimes "json" is actually line delimited
-      if (typeof obj === "string") {
-        // ignore
-      }
-
-      if (Array.isArray(obj)) {
-        parsedRows.push(...obj.map(normalizeRow));
-      } else if (obj && typeof obj === "object") {
-        parsedRows.push(normalizeRow(obj));
-      }
-    } else {
-      // text/log: store each line as an event_type so you still see something
-      txt
-        .split(/\r?\n/)
-        .filter(Boolean)
-        .forEach((line) => {
-          parsedRows.push({
-            timestamp: "",
-            username: "",
-            repository: "",
-            event_type: line.slice(0, 120),
-            status: "",
-            ip_address: "",
-          });
-        });
+  // NDJSON fallback
+  const rows = [];
+  for (const line of text.split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s) continue;
+    try {
+      rows.push(normalizeRow(JSON.parse(s)));
+    } catch {
+      // ignore bad lines
     }
-
-    const pct = Math.round(((i + 1) / uploadedFiles.length) * 100);
-    updateProgress(pct);
   }
+  return rows;
+}
 
-  renderAnalysis(parsedRows);
+function parseTextLines(text) {
+  return text
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((line) => ({
+      timestamp: "",
+      username: "",
+      repository: "",
+      event_type: line.slice(0, 120),
+      status: "",
+      ip_address: "",
+    }));
 }
 
 /* -----------------------------
-   Analysis rendering (UI updates)
+   Analysis UI helpers
 -------------------------------- */
-function renderAnalysis(rows) {
-  // compute summary
-  const total = rows.length;
+function showLoading(on, message = "Processing your log files") {
+  const loading = $("loadingState");
+  const results = $("analysisResults");
+  const msg = $("loadingMessage");
+  const pf = $("progressFill");
 
-  const users = new Set(rows.map((r) => r.username).filter(Boolean));
-  const repos = new Set(rows.map((r) => r.repository).filter(Boolean));
+  if (msg) msg.textContent = message;
+  if (pf) pf.style.width = on ? "10%" : "0%";
 
-  // "success" = HTTP 2xx
-  const ok = rows.filter((r) => String(r.status).startsWith("2")).length;
-  const successRate = total ? Math.round((ok / total) * 100) : 0;
+  if (loading) loading.style.display = on ? "block" : "none";
+  if (results) results.style.display = on ? "none" : "block";
+}
 
-  if ($("totalRequests")) $("totalRequests").textContent = total.toLocaleString();
-  if ($("uniqueUsers")) $("uniqueUsers").textContent = users.size.toLocaleString();
-  if ($("uniqueRepos")) $("uniqueRepos").textContent = repos.size.toLocaleString();
-  if ($("successRate")) $("successRate").textContent = successRate + "%";
+function setProgress(pct) {
+  const pf = $("progressFill");
+  if (pf) pf.style.width = `${pct}%`;
+}
 
-  // top lists
-  const topN = (arr, key) => {
-    const m = new Map();
-    for (const r of arr) {
-      const v = r[key];
-      if (!v) continue;
-      m.set(v, (m.get(v) || 0) + 1);
-    }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  };
+function safeSetText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
 
-  fillTopList("topUsersList", topN(rows, "username"));
-  fillTopList("topReposList", topN(rows, "repository"));
-  fillTopList("topIPsList", topN(rows, "ip_address"));
+function parseDateSafe(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
 
-  // chart hook (if your visualizer.js defines this)
-  if (window.renderAnalysisCharts) {
-    window.renderAnalysisCharts(rows);
+function formatDate(d) {
+  return d ? d.toLocaleString() : "-";
+}
+
+function durationHuman(ms) {
+  if (!isFinite(ms) || ms < 0) return "-";
+  const sec = Math.floor(ms / 1000);
+  const min = Math.floor(sec / 60);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+  if (day > 0) return `${day}d ${hr % 24}h`;
+  if (hr > 0) return `${hr}h ${min % 60}m`;
+  if (min > 0) return `${min}m ${sec % 60}s`;
+  return `${sec}s`;
+}
+
+function topN(rows, key, n = 5) {
+  const m = new Map();
+  for (const r of rows) {
+    const v = r[key];
+    if (!v) continue;
+    const k = String(v);
+    m.set(k, (m.get(k) || 0) + 1);
   }
-
-  // done states
-  safeDisplay("#loadingState", "none");
-  safeDisplay("#analysisResults", "block");
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
 }
 
 function fillTopList(elId, items) {
@@ -288,12 +321,7 @@ function fillTopList(elId, items) {
   if (!el) return;
 
   if (!items.length) {
-    el.innerHTML = `
-      <div class="list-item">
-        <span class="list-rank">-</span>
-        <span class="list-name">No data</span>
-        <span class="list-count">0</span>
-      </div>`;
+    el.innerHTML = `<div class="list-item"><span class="list-rank">-</span><span class="list-name">No data</span><span class="list-count">0</span></div>`;
     return;
   }
 
@@ -302,8 +330,8 @@ function fillTopList(elId, items) {
       (it, idx) => `
     <div class="list-item">
       <span class="list-rank">${idx + 1}</span>
-      <span class="list-name">${escapeHtml(it[0])}</span>
-      <span class="list-count">${Number(it[1]).toLocaleString()}</span>
+      <span class="list-name" title="${escapeHtml(it[0])}">${escapeHtml(it[0])}</span>
+      <span class="list-count">${it[1].toLocaleString()}</span>
     </div>
   `
     )
@@ -311,48 +339,196 @@ function fillTopList(elId, items) {
 }
 
 /* -----------------------------
-   Optional: quick fake sample generator
-   Not required if you use runDemo() in app.js that fetches the repo sample JSON.
+   MAIN: analyze logs
 -------------------------------- */
-function loadSample() {
-  const sample = [];
-  const now = Date.now();
-  const users = ["octocat", "dev_j", "alice", "bob", "sam"];
-  const repos = ["j8roque/Log_Analyzer", "github/docs", "openai/openai-python"];
-  const events = ["push", "pull_request", "issue_comment", "login", "repo_create"];
-  const statuses = ["200", "201", "204", "404", "500"];
-  const ips = ["192.168.1.1", "10.0.0.5", "172.16.0.9", "203.0.113.10"];
+async function analyzeLogs() {
+  // UPGRADE: if parsedRows already set (Demo), analyze directly without file reading
+  const usingMemoryRows = Array.isArray(parsedRows) && parsedRows.length > 0 && uploadedFiles.length === 0;
 
-  for (let i = 0; i < 300; i++) {
-    sample.push({
-      timestamp: new Date(now - i * 3600_000).toISOString(),
-      username: users[i % users.length],
-      repository: repos[i % repos.length],
-      event_type: events[i % events.length],
-      status: statuses[i % statuses.length],
-      ip_address: ips[i % ips.length],
-    });
+  if (!usingMemoryRows && uploadedFiles.length === 0) {
+    toast("Upload a file or run Demo first.", "warn");
+    return;
   }
 
-  parsedRows = sample;
-  window.__uploadedLogs = sample; // make it compatible with the unified analyzeLogs()
-  if ($("analyzeBtn")) $("analyzeBtn").disabled = false;
-  toast("Loaded sample data.");
+  showSection("#analyze");
+  showLoading(true, "Analyzing logs...");
+  setProgress(5);
+
+  try {
+    if (!usingMemoryRows) {
+      parsedRows = [];
+      const forced = getSelectedLogType();
+
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        const f = uploadedFiles[i];
+        const txt = await readFileText(f);
+        const type = forced === "auto" ? autoDetect(txt) : forced;
+
+        if (type === "csv") {
+          const res = Papa.parse(txt, { header: true, skipEmptyLines: true });
+          const rows = (res.data || []).map(normalizeRow);
+          parsedRows.push(...rows);
+        } else if (type === "json") {
+          const rows = parseJsonLoose(txt);
+          parsedRows.push(...rows);
+        } else {
+          parsedRows.push(...parseTextLines(txt));
+        }
+
+        const pct = Math.round(((i + 1) / uploadedFiles.length) * 70) + 10;
+        setProgress(pct);
+      }
+    }
+
+    // UPGRADE: validate results
+    if (!parsedRows.length) {
+      toast("No events found in your file(s). Try a different format or run Demo.", "warn");
+      setProgress(100);
+      return;
+    }
+
+    // Summary
+    const total = parsedRows.length;
+    const users = new Set(parsedRows.map((r) => r.username).filter(Boolean));
+    const repos = new Set(parsedRows.map((r) => r.repository).filter(Boolean));
+    const ok = parsedRows.filter((r) => String(r.status).startsWith("2")).length;
+    const successRate = total ? Math.round((ok / total) * 100) : 0;
+
+    safeSetText("totalRequests", total.toLocaleString());
+    safeSetText("uniqueUsers", users.size.toLocaleString());
+    safeSetText("uniqueRepos", repos.size.toLocaleString());
+    safeSetText("successRate", `${successRate}%`);
+
+    // Time range
+    const times = parsedRows.map((r) => parseDateSafe(r.timestamp)).filter(Boolean).map((d) => d.getTime());
+    if (times.length) {
+      const min = new Date(Math.min(...times));
+      const max = new Date(Math.max(...times));
+      safeSetText("timeFrom", formatDate(min));
+      safeSetText("timeTo", formatDate(max));
+      safeSetText("timeDuration", durationHuman(max.getTime() - min.getTime()));
+    } else {
+      safeSetText("timeFrom", "-");
+      safeSetText("timeTo", "-");
+      safeSetText("timeDuration", "-");
+    }
+
+    // Top lists
+    fillTopList("topUsersList", topN(parsedRows, "username", 5));
+    fillTopList("topReposList", topN(parsedRows, "repository", 5));
+    fillTopList("topIPsList", topN(parsedRows, "ip_address", 5));
+
+    setProgress(90);
+
+    // Charts via visualizer.js
+    if (window.renderAnalysisCharts) {
+      window.renderAnalysisCharts(parsedRows);
+    }
+
+    setProgress(100);
+    toast(`Analysis complete: ${total.toLocaleString()} events`, "success");
+  } catch (err) {
+    console.error(err);
+    toast(`Analyze failed: ${err?.message || err}`, "danger");
+  } finally {
+    // UPGRADE: guarantees spinner stops even on error
+    showLoading(false);
+  }
+}
+window.analyzeLogs = analyzeLogs;
+
+/* -----------------------------
+   Demo / Samples
+-------------------------------- */
+
+// UPGRADE: load sample from your repo file: samples/sample_github_logs.json
+async function loadSample(kind = "json") {
+  // clear uploaded files so analyze reads from memory (fast + reliable)
+  uploadedFiles = [];
+  renderFileList();
+
+  // 1) Try fetch real sample file in repo
+  try {
+    const url = "samples/sample_github_logs.json";
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Sample fetch failed (${res.status})`);
+    const data = await res.json();
+
+    if (Array.isArray(data)) {
+      parsedRows = data.map(normalizeRow);
+    } else if (data && typeof data === "object") {
+      parsedRows = [normalizeRow(data)];
+    } else {
+      parsedRows = [];
+    }
+
+    setAnalyzeEnabled(true);
+    toast("Sample loaded from repo. Click Analyze Logs.", "success");
+    showSection("#upload");
+    return;
+  } catch (e) {
+    console.warn("Sample fetch fallback:", e);
+  }
+
+  // 2) Fallback: generate sample events
+  parsedRows = generateSampleRows(320);
+  setAnalyzeEnabled(true);
+  toast("Sample generated. Click Analyze Logs.", "success");
+  showSection("#upload");
+}
+window.loadSample = loadSample;
+
+function runDemo() {
+  // UPGRADE: demo is async safe
+  loadSample("json");
+}
+window.runDemo = runDemo;
+
+function generateSampleRows(n = 300) {
+  const out = [];
+  const now = Date.now();
+
+  const users = ["octocat", "jr_support", "alice", "bob", "sam", "devops_kim"];
+  const repos = ["j8roque/Log_Analyzer", "github/docs", "openai/openai-python", "nodejs/node"];
+  const events = ["push", "pull_request", "issue_comment", "login", "repo_create", "release"];
+  const statuses = ["200", "201", "204", "301", "404", "500"];
+  const ips = ["192.168.1.1", "10.0.0.5", "172.16.0.9", "203.0.113.10", "198.51.100.23"];
+
+  for (let i = 0; i < n; i++) {
+    out.push(
+      normalizeRow({
+        timestamp: new Date(now - i * 45 * 60 * 1000).toISOString(),
+        username: users[i % users.length],
+        repository: repos[i % repos.length],
+        event_type: events[i % events.length],
+        status: statuses[i % statuses.length],
+        ip_address: ips[i % ips.length],
+      })
+    );
+  }
+  return out;
 }
 
 /* -----------------------------
-   Utilities
+   Init
 -------------------------------- */
-function updateProgress(pct) {
-  const pf = $("progressFill");
-  if (pf) pf.style.width = pct + "%";
-}
+window.addEventListener("load", () => {
+  setupUpload();
 
-function safeDisplay(selector, displayValue) {
-  const el = document.querySelector(selector);
-  if (el) el.style.display = displayValue;
-}
+  // UPGRADE: ensure default section loads
+  const hash = window.location.hash || "#upload";
+  showSection(hash);
 
+  // UPGRADE: make Analyze button work even if user loaded sample
+  setAnalyzeEnabled(false);
+
+  // UPGRADE: toast CSS inject (only if your CSS doesn't include it yet)
+  ensureToastStyles();
+});
+
+/* -----------------------------
+   Small helpers
+-------------------------------- */
 function escapeHtml(str) {
   return String(str)
     .replaceAll("&", "&amp;")
@@ -362,12 +538,32 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-/* -----------------------------
-   IMPORTANT UPGRADE NOTE
---------------------------------
-Delete ANY runDemo() inside this file.
-runDemo() must live only in app.js so it does not get overwritten.
--------------------------------- */
+function ensureToastStyles() {
+  if (document.getElementById("toastStyles")) return;
 
-// Boot
-window.addEventListener("load", setupUpload);
+  const s = document.createElement("style");
+  s.id = "toastStyles";
+  s.textContent = `
+    .toast { 
+      background: rgba(15,23,42,0.92);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.22);
+      padding: 0.7rem 0.85rem;
+      max-width: 360px;
+      backdrop-filter: blur(10px);
+      animation: toastIn 180ms ease;
+    }
+    .toast.hide { opacity: 0; transform: translateY(6px); transition: 180ms ease; }
+    .toast-inner { display:flex; gap:0.65rem; align-items:center; }
+    .toast-dot { width:10px; height:10px; border-radius:999px; background:#60a5fa; }
+    .toast-dot.success { background:#22c55e; }
+    .toast-dot.warn { background:#fbbf24; }
+    .toast-dot.danger { background:#fb7185; }
+    .toast-text { color:#e5e7eb; font-weight:800; line-height:1.3; }
+    .toast-x { margin-left:auto; border:none; background:transparent; color:#e5e7eb; font-size:18px; cursor:pointer; opacity:0.8; }
+    .toast-x:hover { opacity:1; }
+    @keyframes toastIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
+  `;
+  document.head.appendChild(s);
+}
