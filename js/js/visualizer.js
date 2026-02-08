@@ -1,9 +1,17 @@
 // visualizer.js
-// Upgraded: tab switching + charts that render reliably after Demo/Analyze
-// Requires: Chart.js loaded in index.html BEFORE this file
+// Upgrade pack: fixes tab switching + reliable rendering + dropdown text visibility + safer init
+// Requires: Chart.js + Plotly (optional) loaded in index.html BEFORE this file
 
 let charts = {};
 let _lastRows = [];
+
+/* =============================
+   Upgrades added in this file
+   1) Tab buttons no longer rely on parsing onclick strings
+   2) Charts re render AFTER tab becomes visible
+   3) Auto style fix for select option text (dark themes)
+   4) Safe init on DOMContentLoaded (works on GitHub Pages)
+============================= */
 
 /* -----------------------------
    Utilities
@@ -46,16 +54,13 @@ function groupByTime(rows, granularity) {
 
     let key = "";
     if (granularity === "hour") {
-      // YYYY-MM-DD HH:00
       key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:00`;
     } else if (granularity === "week") {
-      // ISO-like week key: YYYY-W##
       const wk = isoWeek(d);
       key = `${wk.year}-W${pad2(wk.week)}`;
     } else if (granularity === "month") {
       key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
     } else {
-      // day
       key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
     }
 
@@ -104,6 +109,31 @@ function chartReady() {
   return typeof Chart !== "undefined";
 }
 
+/** Force Chart.js to measure correct size after tab becomes visible */
+function rerenderAfterPaint(fn) {
+  requestAnimationFrame(() => requestAnimationFrame(fn));
+}
+
+/* -----------------------------
+   UPGRADE: Fix select/option text visibility on dark theme
+   (GitHub Pages + Chrome often renders option list white on white)
+-------------------------------- */
+function ensureSelectOptionContrast() {
+  const styleId = "viz-select-contrast-fix";
+  if (document.getElementById(styleId)) return;
+
+  const s = document.createElement("style");
+  s.id = styleId;
+  s.textContent = `
+    /* dropdown list items */
+    select option {
+      background: #0b1220;
+      color: #e5e7eb;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 /* -----------------------------
    Public hook called by analyzer.js
 -------------------------------- */
@@ -115,13 +145,13 @@ window.renderAnalysisCharts = function (rows) {
   renderEventDoughnut(_lastRows);
   renderStatusGrid(_lastRows);
 
-  // Visualization section charts (if user clicks Visualize)
+  // Visualization section charts
   renderTimeline(_lastRows);
   renderHourly(_lastRows);
   renderEventsBar(_lastRows);
   renderStatusPieAndTable(_lastRows);
 
-  // Plotly dashboards are optional; we only render if Plotly exists
+  // Plotly dashboards optional
   renderDashboard(_lastRows);
 };
 
@@ -146,10 +176,7 @@ function renderEventDoughnut(rows) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { position: "bottom" },
-        title: { display: false },
-      },
+      plugins: { legend: { position: "bottom" } },
     },
   });
 }
@@ -186,19 +213,13 @@ function renderTimeline(rows) {
   destroyChart("timelineChart");
   charts["timelineChart"] = new Chart(ctx, {
     type: "line",
-    data: {
-      labels,
-      datasets: [{ label: "Requests", data }],
-    },
+    data: { labels, datasets: [{ label: "Requests", data }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { maxTicksLimit: 10 } },
-        y: { beginAtZero: true },
-      },
+      scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { beginAtZero: true } },
     },
   });
 }
@@ -214,18 +235,12 @@ function renderHourly(rows) {
   destroyChart("hourlyChart");
   charts["hourlyChart"] = new Chart(ctx, {
     type: "bar",
-    data: {
-      labels,
-      datasets: [{ label: "Requests", data }],
-    },
+    data: { labels, datasets: [{ label: "Requests", data }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { maxTicksLimit: 12 } },
-        y: { beginAtZero: true },
-      },
+      scales: { x: { ticks: { maxTicksLimit: 12 } }, y: { beginAtZero: true } },
     },
   });
 
@@ -256,18 +271,12 @@ function renderEventsBar(rows) {
   destroyChart("eventsChart");
   charts["eventsChart"] = new Chart(ctx, {
     type: "bar",
-    data: {
-      labels: items.map((x) => x[0]),
-      datasets: [{ label: "Count", data: items.map((x) => x[1]) }],
-    },
+    data: { labels: items.map((x) => x[0]), datasets: [{ label: "Count", data: items.map((x) => x[1]) }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { maxTicksLimit: 10 } },
-        y: { beginAtZero: true },
-      },
+      scales: { x: { ticks: { maxTicksLimit: 10 } }, y: { beginAtZero: true } },
     },
   });
 }
@@ -283,18 +292,10 @@ function renderStatusPieAndTable(rows) {
   destroyChart("statusChart");
   charts["statusChart"] = new Chart(ctx, {
     type: "doughnut",
-    data: {
-      labels: items.map((x) => x[0]),
-      datasets: [{ data: items.map((x) => x[1]) }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { position: "bottom" } },
-    },
+    data: { labels: items.map((x) => x[0]), datasets: [{ data: items.map((x) => x[1]) }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } },
   });
 
-  // Table
   const tbody = document.getElementById("statusTableBody");
   if (tbody) {
     tbody.innerHTML = items
@@ -328,36 +329,28 @@ function statusCategory(code) {
 function renderDashboard(rows) {
   if (typeof Plotly === "undefined") return;
 
-  // Requests over time (daily)
   const t = groupByTime(rows, "day");
   const timelineDiv = document.getElementById("dashboardTimeline");
   if (timelineDiv) {
     Plotly.react(
       timelineDiv,
       [{ x: t.labels, y: t.data, type: "scatter", mode: "lines" }],
-      { margin: { t: 30, l: 40, r: 20, b: 40 }, title: "" },
+      { margin: { t: 30, l: 40, r: 20, b: 40 } },
       { displayModeBar: false, responsive: true }
     );
   }
 
-  // Event treemap
   const treemapDiv = document.getElementById("dashboardTreemap");
   if (treemapDiv) {
     const items = countBy(rows, "event_type").slice(0, 30);
     Plotly.react(
       treemapDiv,
-      [{
-        type: "treemap",
-        labels: items.map((x) => x[0]),
-        parents: items.map(() => ""),
-        values: items.map((x) => x[1]),
-      }],
+      [{ type: "treemap", labels: items.map((x) => x[0]), parents: items.map(() => ""), values: items.map((x) => x[1]) }],
       { margin: { t: 10, l: 10, r: 10, b: 10 } },
       { displayModeBar: false, responsive: true }
     );
   }
 
-  // User activity (top 10)
   const usersDiv = document.getElementById("dashboardUsers");
   if (usersDiv) {
     const items = countBy(rows, "username").slice(0, 10);
@@ -369,18 +362,12 @@ function renderDashboard(rows) {
     );
   }
 
-  // Hourly heatmap (simple 1x24)
   const heatDiv = document.getElementById("dashboardHeatmap");
   if (heatDiv) {
     const h = hourlyHistogram(rows);
     Plotly.react(
       heatDiv,
-      [{
-        z: [h],
-        x: Array.from({ length: 24 }, (_, i) => pad2(i)),
-        y: ["Hour"],
-        type: "heatmap",
-      }],
+      [{ z: [h], x: Array.from({ length: 24 }, (_, i) => pad2(i)), y: ["Hour"], type: "heatmap" }],
       { margin: { t: 20, l: 50, r: 20, b: 40 } },
       { displayModeBar: false, responsive: true }
     );
@@ -388,35 +375,40 @@ function renderDashboard(rows) {
 }
 
 /* -----------------------------
-   Tab switching (fixes your “round tabs”)
+   UPGRADE: Tab switching that works even if buttons don’t have onclick
+   - If your HTML still uses onclick="showVizTab('timeline')" it still works
+   - But now it also works via data-tab attributes or normal buttons
 -------------------------------- */
 
-window.showVizTab = function (tab) {
-  // Toggle active pill buttons
+function setVizActive(tab) {
   document.querySelectorAll(".viz-tab").forEach((b) => b.classList.remove("active"));
-
-  const btn = Array.from(document.querySelectorAll(".viz-tab")).find((b) =>
-    (b.getAttribute("onclick") || "").includes(`'${tab}'`)
-  );
-  if (btn) btn.classList.add("active");
-
-  // Toggle panels
   document.querySelectorAll(".viz-tab-content").forEach((c) => c.classList.remove("active"));
+
+  // Prefer data-tab, fallback to onclick matching
+  const btn =
+    document.querySelector(`.viz-tab[data-tab="${tab}"]`) ||
+    Array.from(document.querySelectorAll(".viz-tab")).find((b) => (b.getAttribute("onclick") || "").includes(`'${tab}'`));
+
+  if (btn) btn.classList.add("active");
 
   const panel = document.getElementById(tab + "Tab");
   if (panel) panel.classList.add("active");
 
-  // When switching tabs, re-render charts so they appear (Chart.js needs visible canvas size)
-  if (_lastRows.length) {
+  // Re-render after the panel is visible so Chart.js measures correctly
+  rerenderAfterPaint(() => {
+    if (!_lastRows.length) return;
     if (tab === "timeline") renderTimeline(_lastRows);
     if (tab === "hourly") renderHourly(_lastRows);
     if (tab === "events") renderEventsBar(_lastRows);
     if (tab === "status") renderStatusPieAndTable(_lastRows);
     if (tab === "dashboard") renderDashboard(_lastRows);
-  }
+  });
+}
+
+window.showVizTab = function (tab) {
+  setVizActive(tab);
 };
 
-// Dropdown updates
 window.updateTimeline = function () {
   if (_lastRows.length) renderTimeline(_lastRows);
 };
@@ -425,13 +417,12 @@ window.updateEventsChart = function () {
   if (_lastRows.length) renderEventsBar(_lastRows);
 };
 
-// Dashboard refresh button
 window.refreshDashboard = function () {
   if (_lastRows.length) renderDashboard(_lastRows);
 };
 
 /* -----------------------------
-   Download chart (optional)
+   Download chart
 -------------------------------- */
 
 window.downloadChart = function (which) {
@@ -471,3 +462,20 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+/* -----------------------------
+   UPGRADE: init bindings (optional)
+   If you add data-tab attributes, this auto-wires clicks.
+   Example:
+     <button class="viz-tab" data-tab="timeline">Timeline</button>
+-------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  ensureSelectOptionContrast();
+
+  document.querySelectorAll(".viz-tab[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-tab");
+      if (tab) setVizActive(tab);
+    });
+  });
+});
